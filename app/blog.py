@@ -103,6 +103,19 @@ def update_blog_api(
 @router.delete("/{blog_id}")
 def delete_blog_api(blog_id: int, session: Session = Depends(get_session)):
 
+    blog = get_single_blog(session, blog_id)
+    if not blog:
+        raise HTTPException(
+            status_code=404,
+            detail="Blog not found",
+        )
+
+    # Delete physical image file
+    if blog.image:
+        if os.path.exists(blog.image):
+            os.remove(blog.image)
+
+    # Delete DB record
     result = delete_blog(session, blog_id)
     if not result:
         raise HTTPException(status_code=404, detail="Blog not found")
