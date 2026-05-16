@@ -82,6 +82,11 @@ def update_blog_api(
             detail="Blog not found",
         )
 
+    # Delete physical image file
+    if blog.image:
+        if os.path.exists(blog.image):
+            os.remove(blog.image)
+
     image_path = save_uploaded_image(image)
 
     updated_blog = update_blog(
