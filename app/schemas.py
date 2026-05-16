@@ -12,3 +12,12 @@ class BlogResponse(BaseModel):
     description: str
     image: str | None
     created_at: datetime
+
+class Pagination(BaseModel):
+    count: int
+    page: int
+    page_size: int
+
+class PaginatedBlogResponse(BaseModel):
+    pagination: Pagination
+    results: list[BlogResponse]

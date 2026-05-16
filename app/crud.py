@@ -7,9 +7,33 @@ def create_blog(session: Session, blog_data: Blog):
     session.refresh(blog_data)
     return blog_data
 
-def get_all_blogs(session: Session):
+
+def get_all_blogs(
+    session: Session,
+    page: int = 1,
+    page_size: int = 10,
+    order: str = "desc",
+):
+    offset = (page - 1) * page_size
     statement = select(Blog)
-    return session.exec(statement).all()
+
+    if order == "asc":
+        statement = statement.order_by(Blog.id.asc())
+    else:
+        statement = statement.order_by(Blog.id.desc())
+
+    statement = (statement.offset(offset).limit(page_size))
+    blogs = session.exec(statement).all()
+    total_count = len(session.exec(select(Blog)).all())
+
+    return {
+        "pagination": {
+            "count": total_count,
+            "page": page,
+            "page_size": page_size,
+        },
+        "results": blogs,
+    }
 
 def get_single_blog(session: Session, blog_id: int):
     return session.get(Blog, blog_id)

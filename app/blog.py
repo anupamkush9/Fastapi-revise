@@ -8,7 +8,7 @@ from fastapi import (
 from sqlmodel import Session
 from app.database import get_session
 from app.models import Blog
-from app.schemas import BlogResponse
+from app.schemas import BlogResponse, PaginatedBlogResponse
 from app.crud import (
     create_blog, get_all_blogs, get_single_blog, update_blog, delete_blog
 )
@@ -46,14 +46,19 @@ def create_blog_api(
 
 
 # GET ALL BLOGS
-@router.get("/", response_model=list[BlogResponse])
-def get_blogs(request: Request, session: Session = Depends(get_session)):
-    blogs = get_all_blogs(session)
-    for blog in blogs:
+@router.get("/", response_model=PaginatedBlogResponse)
+def get_blogs(
+    request: Request,
+    page: int = 1,
+    page_size: int = 10,
+    order: str = "desc",
+    session: Session = Depends(get_session),
+):
+    data = get_all_blogs(session=session, page=page, page_size=page_size, order=order)
+    for blog in data["results"]:
         if blog.image:
             blog.image = f"{request.base_url}{blog.image}"
-    return blogs
-
+    return data
 
 # GET SINGLE BLOG
 @router.get("/{blog_id}", response_model=BlogResponse)
