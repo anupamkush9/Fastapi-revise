@@ -7,7 +7,8 @@ from fastapi import (
     HTTPException,
     UploadFile,
     File,
-    Form
+    Form,
+    Request
 )
 
 from sqlmodel import Session
@@ -15,6 +16,8 @@ from sqlmodel import Session
 from app.database import get_session
 
 from app.models import Blog
+
+from app.schemas import BlogResponse
 
 from app.crud import (
     create_blog,
@@ -31,8 +34,12 @@ router = APIRouter(
 
 
 # CREATE BLOG
-@router.post("/")
+@router.post(
+    "/",
+    response_model=BlogResponse
+)
 def create_blog_api(
+    request: Request,
     title: str = Form(...),
     description: str = Form(...),
     image: UploadFile = File(...),
@@ -42,44 +49,95 @@ def create_blog_api(
     # Create uploads folder
     os.makedirs("app/uploads", exist_ok=True)
 
-    # Save image
-    image_path = f"app/uploads/{image.filename}"
+    # Physical file location
+    file_location = (
+        f"app/uploads/{image.filename}"
+    )
 
-    with open(image_path, "wb") as buffer:
-        shutil.copyfileobj(image.file, buffer)
+    # Save image in uploads folder
+    with open(file_location, "wb") as buffer:
 
-    # Create DB object
+        shutil.copyfileobj(
+            image.file,
+            buffer
+        )
+
+    # Save relative path in DB
+    image_path = (
+        f"uploads/{image.filename}"
+    )
+
+    # Create blog object
     blog = Blog(
         title=title,
         description=description,
         image=image_path
     )
 
-    return create_blog(session, blog)
+    blog = create_blog(session, blog)
+
+    # Convert relative image path to full URL
+    if blog.image:
+
+        blog.image = (
+            f"{request.base_url}{blog.image}"
+        )
+
+    return blog
 
 
 # GET ALL BLOGS
-@router.get("/")
+@router.get(
+    "/",
+    response_model=list[BlogResponse]
+)
 def get_blogs(
+    request: Request,
     session: Session = Depends(get_session)
 ):
 
-    return get_all_blogs(session)
+    blogs = get_all_blogs(session)
+
+    # Convert relative image path to full URL
+    for blog in blogs:
+
+        if blog.image:
+
+            blog.image = (
+                f"{request.base_url}{blog.image}"
+            )
+
+    return blogs
 
 
 # GET SINGLE BLOG
-@router.get("/{blog_id}")
+@router.get(
+    "/{blog_id}",
+    response_model=BlogResponse
+)
 def get_blog(
     blog_id: int,
+    request: Request,
     session: Session = Depends(get_session)
 ):
 
-    blog = get_single_blog(session, blog_id)
+    blog = get_single_blog(
+        session,
+        blog_id
+    )
 
     if not blog:
+
         raise HTTPException(
             status_code=404,
             detail="Blog not found"
+        )
+
+    # Convert relative image path to full URL
+    if blog.image:
+
+        blog.image = (
+            f"{request.base_url}{blog.image}"
         )
 
     return blog
@@ -92,12 +150,18 @@ def delete_blog_api(
     session: Session = Depends(get_session)
 ):
 
-    result = delete_blog(session, blog_id)
+    result = delete_blog(
+        session,
+        blog_id
+    )
 
     if not result:
+
         raise HTTPException(
             status_code=404,
             detail="Blog not found"
         )
 
-    return {"message": "Blog deleted successfully"}
+    return {
+        "message": "Blog deleted successfully"
+    }
